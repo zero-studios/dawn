@@ -17,6 +17,8 @@ if (!customElements.get('quick-add-bulk')) {
         this.listenForActiveInput();
         this.listenForKeydown();
         this.lastActiveInputId = null;
+        const pageParams = new URLSearchParams(window.location.search);
+        window.pageNumber = decodeURIComponent(pageParams.get('page') || '');
       }
 
 
@@ -77,12 +79,14 @@ if (!customElements.get('quick-add-bulk')) {
 
       onCartUpdate() {
         return new Promise((resolve, reject) => {
-          fetch(`${window.location.pathname}?section_id=${this.closest('.collection').dataset.id}`)
+          fetch(`${this.getSectionsUrl()}?section_id=${this.closest('.collection').dataset.id}`)
             .then((response) => response.text())
             .then((responseText) => {
               const html = new DOMParser().parseFromString(responseText, 'text/html');
               const sourceQty = html.querySelector(`#quick-add-bulk-${this.dataset.id}-${this.closest('.collection').dataset.id}`);
-              this.innerHTML = sourceQty.innerHTML;
+              if (sourceQty) {
+                this.innerHTML = sourceQty.innerHTML;
+              }
               resolve();
             })
             .catch(e => {
@@ -95,12 +99,13 @@ if (!customElements.get('quick-add-bulk')) {
       updateCart(event) {
         this.lastActiveInputId = event.target.getAttribute('data-index');
         this.quantity = this.querySelector('quantity-input')
-        // this.quantity.classList.add('loading');
+        this.quantity.classList.add('quantity__input-disabled');
         this.selectProgressBar().classList.remove('hidden');
         const body = JSON.stringify({
           quantity: event.target.value,
           id: event.target.getAttribute('data-index'),
-          sections: this.getSectionsToRender().map((section) => section.section)
+          sections: this.getSectionsToRender().map((section) => section.section),
+          sections_url: this.getSectionsUrl()
         });
 
         fetch(`${routes.cart_change_url}`, { ...fetchConfig('javascript'), ...{ body } })
@@ -153,6 +158,7 @@ if (!customElements.get('quick-add-bulk')) {
               event.target.reportValidity();
               this.resetQuantityInput(event.target.id);
               this.selectProgressBar().classList.add('hidden');
+              this.quantity.classList.remove('quantity__input-disabled');
               event.target.select();
               this.cleanErrorMessageOnType(event);
               // Error handling
@@ -186,6 +192,14 @@ if (!customElements.get('quick-add-bulk')) {
             section: 'cart-drawer'
           }
         ];
+      }
+
+      getSectionsUrl() {
+        if (window.pageNumber) {
+          return `${window.location.pathname}?page=${window.pageNumber}`
+        } else {
+          return `${window.location.pathname}`
+        }      
       }
 
       getSectionInnerHTML(html, selector) {
